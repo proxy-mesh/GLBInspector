@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GLB Inspector</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+/* ---------- Light theme — riffs on WebstaurantStore's clean white +
+   grass-green + orange-CTA restaurant-supply storefront look ---------- */
+:root{
+  --bg-app:       #f1f2ec;   /* light warm gray work area */
+  --bg-panel:     #ffffff;   /* top bar, sidebar, drawer — white */
+  --bg-surface:   #f7f8f3;   /* cards, chips, input wells */
+  --bg-elevated:  #e9ece1;   /* hover / active rows */
+  --bg-input:     #ffffff;   /* text inputs, selects */
+
+  --border:       rgba(28,40,18,0.12);
+  --border-hover: rgba(28,40,18,0.22);
+  --border-focus: rgba(91,140,42,0.60);
+
+  --text-primary:   #1c2417;   /* dark green-tinted near-black */
+  --text-secondary: #58614f;
+  --text-muted:     #97a08c;
+
+  --accent:        #5b8c2a;                  /* WebstaurantStore brand green */
+  --accent-strong: #4a7320;
+  --accent-dim:    rgba(91,140,42,0.14);
+
+  --cta:           #f47b20;                  /* orange CTA echo */
+  --cta-strong:    #db6710;
+  --cta-dim:       rgba(244,123,32,0.14);
+
+  --success: #4a9e6e;
+  --warning: #c47d2a;
+  --danger:  #b85050;
+
+  --topbar-h: 48px;
+  --status-h: 32px;
+  --sidebar-w: 240px;
+  --drawer-w: 260px;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{
+  background:var(--bg-app);
+  color:var(--text-primary);
+  font-family:'DM Sans',sans-serif;
+  font-size:13px;
+  font-weight:400;
+  letter-spacing:0.01em;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{ font-family:'DM Mono',monospace; }
+
+*::-webkit-scrollbar{ width:6px; height:6px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+*::-webkit-scrollbar-thumb{ background:rgba(28,40,18,0.20); border-radius:3px; }
+*{ scrollbar-width:thin; scrollbar-color:rgba(28,40,18,0.20) transparent; }
+
+button{ font-family:inherit; font-size:inherit; letter-spacing:inherit; cursor:pointer; }
+.icon{ width:16px; height:16px; stroke-width:1.8; }
+
+/* ---------- App shell ---------- */
+#app{ display:flex; flex-direction:column; height:100vh; }
+
+#topbar{
+  height:var(--topbar-h); flex:0 0 auto;
+  background:var(--bg-panel);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:8px;
+  padding:0 10px;
+  box-shadow:0 1px 0 rgba(28,40,18,0.04);
+}
+.brand{ display:flex; align-items:center; gap:8px; padding-right:6px; }
+.brand .dot{ width:16px; height:16px; border-radius:4px; background:var(--accent); }
+.brand .name{ font-weight:700; color:var(--text-primary); letter-spacing:-0.01em; }
+.brand .sub{ color:var(--text-muted); font-size:11px; letter-spacing:0.02em; }
+
+.topbar-spacer{ flex:1 1 auto; }
+.topbar-group{ display:flex; align-items:center; gap:6px; }
+.vrule{ width:1px; height:22px; background:var(--border); margin:0 4px; }
+
+.btn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:28px; padding:0 11px;
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text-secondary);
+  font-weight:500;
+  transition:background 120ms ease, color 120ms ease, border-color 120ms ease;
+  white-space:nowrap;
+}
+.btn:hover{ background:var(--bg-elevated); color:var(--text-primary); border-color:var(--border-hover); }
+.btn.icon-only{ width:28px; padding:0; justify-content:center; }
+.btn.active{ background:var(--accent-dim); border-color:var(--accent); color:var(--accent-strong); }
+.btn:disabled{ opacity:0.4; cursor:default; }
+
+/* orange CTA — the storefront "primary action" accent */
+.btn.cta{ background:var(--cta); border-color:var(--cta-strong); color:#fff; }
+.btn.cta:hover{ background:var(--cta-strong); color:#fff; }
+
+.model-strip{ display:flex; align-items:center; gap:5px; }
+.model-chip{
+  display:flex; align-items:center; gap:6px;
+  height:28px; padding:0 9px;
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text-secondary);
+  font-weight:500;
+  transition:background 120ms ease,color 120ms ease,border-color 120ms ease;
+}
+.model-chip:hover{ background:var(--bg-elevated); color:var(--text-primary); }
+.model-chip.active{ background:var(--accent-dim); border-color:var(--accent); color:var(--accent-strong); }
+.model-chip .swatch{ width:14px; height:14px; border-radius:3px; border:1px solid var(--border-hover); }
+
+/* ---------- Main row ---------- */
+#main{ flex:1 1 auto; display:flex; min-height:0; }
+
+.sidebar{
+  flex:0 0 var(--sidebar-w); width:var(--sidebar-w);
+  background:var(--bg-panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden;
+  transition:flex-basis 140ms ease, width 140ms ease;
+}
+.sidebar.collapsed{ flex-basis:0; width:0; border-right:none; }
+
+.drawer{
+  flex:0 0 var(--drawer-w); width:var(--drawer-w);
+  background:var(--bg-panel); border-left:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden;
+  transition:flex-basis 140ms ease, width 140ms ease;
+}
+.drawer.collapsed{ flex-basis:0; width:0; border-left:none; }
+
+.section{ border-bottom:1px solid var(--border); }
+.section-head{
+  height:32px; padding:0 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  color:var(--text-muted); font-weight:600;
+  font-size:11px; letter-spacing:0.06em;
+  cursor:pointer; user-select:none;
+}
+.section-head:hover{ color:var(--text-secondary); }
+.section.collapsed .chev{ transform:rotate(-90deg); }
+.chev{ transition:transform 120ms ease; }
+.section-body{ padding:6px 12px 14px; }
+.section.collapsed .section-body{ display:none; }
+
+/* viewports */
+#viewports{ flex:1 1 auto; display:flex; min-width:0; position:relative; }
+.pane{ flex:1 1 50%; min-width:280px; display:flex; flex-direction:column; min-height:0; position:relative; }
+.pane-toolbar{
+  height:34px; flex:0 0 auto;
+  background:var(--bg-panel);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:8px;
+  padding:0 10px;
+}
+.pane-label{ font-size:11px; font-weight:600; letter-spacing:0.05em; color:var(--text-secondary); display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.pane-label .pip{ width:7px; height:7px; border-radius:2px; background:var(--accent); }
+.pane-body{ flex:1 1 auto; position:relative; min-height:0; background:var(--bg-app); }
+.pane-body canvas{ display:block; width:100%; height:100%; }
+
+model-viewer{ width:100%; height:100%; background:var(--bg-app); --poster-color:transparent; }
+
+#divider{
+  flex:0 0 5px; width:5px; cursor:col-resize; background:var(--bg-panel);
+  border-left:1px solid var(--border); border-right:1px solid var(--border);
+  transition:background 120ms ease;
+}
+#divider:hover, #divider.drag{ background:var(--accent-dim); }
+
+/* render-mode segmented control — WORD LABELS, scrolls if cramped */
+.segmented{ display:flex; gap:4px; overflow-x:auto; overflow-y:hidden; flex:1 1 auto; justify-content:flex-end; padding-bottom:1px; }
+.segmented::-webkit-scrollbar{ height:0; }
+.seg-btn{
+  height:24px; padding:0 9px; flex:0 0 auto;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--bg-surface); border:1px solid var(--border); border-radius:6px;
+  color:var(--text-secondary); font-size:11px; font-weight:500; white-space:nowrap;
+  transition:background 120ms ease,color 120ms ease,border-color 120ms ease;
+}
+.seg-btn:hover{ background:var(--bg-elevated); color:var(--text-primary); }
+.seg-btn.active{ background:var(--accent-dim); border-color:var(--accent); color:var(--accent-strong); }
+
+/* control rows */
+.ctrl{ padding:6px 0; }
+.ctrl-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:28px; }
+.ctrl-label{ color:var(--text-secondary); font-weight:500; }
+.ctrl-val{ color:var(--text-primary); font-size:12px; min-width:42px; text-align:right; }
+
+select, input[type=text]{
+  width:100%; height:28px; padding:0 8px;
+  background:var(--bg-input); border:1px solid var(--border); border-radius:6px;
+  color:var(--text-primary); font-family:inherit; font-size:12px;
+  outline:none; transition:border-color 120ms ease, box-shadow 120ms ease;
+}
+select:focus, input[type=text]:focus{ border-color:var(--border-focus); box-shadow:0 0 0 3px var(--accent-dim); }
+select{ appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2358614f' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat; background-position:right 8px center; padding-right:26px; }
+
+input[type=color]{
+  width:34px; height:24px; padding:0; border:1px solid var(--border); border-radius:6px;
+  background:var(--bg-input); cursor:pointer;
+}
+input[type=color]::-webkit-color-swatch-wrapper{ padding:2px; }
+input[type=color]::-webkit-color-swatch{ border:none; border-radius:4px; }
+
+/* range sliders */
+input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:14px; background:transparent; cursor:pointer; margin:0; }
+input[type=range]::-webkit-slider-runnable-track{
+  height:3px; border-radius:2px;
+  background:linear-gradient(to right, var(--accent) 0 var(--fill,50%), var(--border-hover) var(--fill,50%) 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:13px; height:13px; border-radius:50%;
+  background:#ffffff; margin-top:-5px; border:1px solid var(--accent-strong);
+  box-shadow:0 1px 2px rgba(28,40,18,0.25);
+}
+input[type=range]::-moz-range-track{ height:3px; border-radius:2px; background:var(--border-hover); }
+input[type=range]::-moz-range-progress{ height:3px; border-radius:2px; background:var(--accent); }
+input[type=range]::-moz-range-thumb{ width:13px; height:13px; border:1px solid var(--accent-strong); border-radius:50%; background:#fff; }
+
+.toggle{
+  position:relative; width:34px; height:18px; border-radius:10px;
+  background:var(--bg-elevated); border:1px solid var(--border);
+  transition:background 120ms ease, border-color 120ms ease;
+}
+.toggle::after{
+  content:""; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%;
+  background:var(--text-muted); transition:transform 120ms ease, background 120ms ease;
+}
+.toggle.on{ background:var(--accent-dim); border-color:var(--accent); }
+.toggle.on::after{ transform:translateX(16px); background:var(--accent); }
+
+/* model info list */
+.kv{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+.kv .k{ color:var(--text-secondary); }
+.kv .v{ color:var(--text-primary); font-size:12px; text-align:right; word-break:break-word; }
+.subhead{ color:var(--text-muted); font-size:11px; font-weight:600; letter-spacing:0.05em; margin:10px 0 4px; }
+.tex-item{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; border-top:1px solid var(--border); font-size:11px; }
+.tex-item .tn{ color:var(--text-primary); }
+.tex-item .td{ color:var(--text-secondary); }
+.chips{ display:flex; flex-wrap:wrap; gap:4px; }
+.ext-chip{ padding:2px 6px; background:var(--bg-surface); border:1px solid var(--border); border-radius:4px; color:var(--text-secondary); font-size:11px; }
+.empty-note{ color:var(--text-muted); font-size:12px; }
+.err-note{ color:var(--danger); font-size:12px; }
+
+/* hierarchy tree */
+.tree{ font-size:12px; }
+.tnode-row{
+  display:flex; align-items:center; gap:4px; height:24px; padding:0 4px; border-radius:4px;
+  cursor:pointer; color:var(--text-secondary);
+  transition:background 120ms ease, color 120ms ease;
+}
+.tnode-row:hover{ background:var(--bg-elevated); color:var(--text-primary); }
+.tnode-row.selected{ background:var(--accent-dim); color:var(--accent-strong); }
+.tnode-row .tw{ width:14px; display:inline-flex; justify-content:center; flex:0 0 14px; color:var(--text-muted); }
+.tnode-row .tw .icon{ width:12px; height:12px; }
+.tnode-row .tname{ flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tnode-row .tmat{ color:var(--text-muted); font-size:10px; flex:0 0 auto; }
+.tchildren{ margin-left:12px; border-left:1px solid var(--border); padding-left:2px; }
+.tchildren.hidden{ display:none; }
+
+/* status bar */
+#statusbar{
+  height:var(--status-h); flex:0 0 auto;
+  background:var(--bg-panel); border-top:1px solid var(--border);
+  display:flex; align-items:center; padding:0 12px;
+  font-family:'DM Mono',monospace; font-size:11px; color:var(--text-secondary);
+}
+.stat{ display:flex; align-items:center; gap:6px; padding:0 12px; border-right:1px solid var(--border); }
+.stat:first-child{ padding-left:0; }
+.stat .sl{ color:var(--text-muted); }
+.stat .sv{ color:var(--text-primary); }
+#statusbar .grow{ flex:1 1 auto; }
+.mode-tag{ color:var(--accent-strong); font-weight:500; padding-left:12px; }
+
+/* drop zone */
+#dropzone{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:var(--bg-app); }
+#dropzone.hidden{ display:none; }
+.dz-inner{
+  width:340px; max-width:70%; padding:42px 28px;
+  border:1px dashed var(--border-hover); border-radius:10px; background:var(--bg-panel);
+  display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center;
+  box-shadow:0 1px 3px rgba(28,40,18,0.05);
+  transition:border-color 120ms ease, background 120ms ease;
+}
+#dropzone.over .dz-inner{ border-color:var(--accent); background:var(--accent-dim); }
+.dz-inner .dzicon{ color:var(--text-muted); }
+.dz-inner .dzicon .icon{ width:32px; height:32px; stroke-width:1.5; }
+.dz-title{ color:var(--text-secondary); font-size:14px; font-weight:500; }
+.dz-sub{ color:var(--text-muted); font-size:12px; }
+
+.hidden{ display:none !important; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <span class="name">GLB Inspector</span>
+      <span class="sub">model testing</span>
+    </div>
+
+    <button class="btn icon-only" id="toggleSidebar" title="Toggle hierarchy panel"><i data-lucide="panel-left"></i></button>
+
+    <div class="vrule"></div>
+
+    <div class="model-strip" id="modelStrip">
+      <button class="model-chip active" data-model="material-sphere.glb" title="PBR material sphere">
+        <span class="swatch" style="background:linear-gradient(135deg,#cfd2c8,#8a8f80)"></span>Sphere
+      </button>
+      <button class="model-chip" data-model="uv-checker-cube.glb" title="UV validation cube">
+        <span class="swatch" style="background:repeating-conic-gradient(#5b8c2a 0 25%, #e9ece1 0 50%)"></span>UV cube
+      </button>
+      <button class="model-chip" data-model="multi-material.glb" title="Multi-material object">
+        <span class="swatch" style="background:linear-gradient(135deg,#b85050,#5b8c2a,#f47b20)"></span>Multi
+      </button>
+    </div>
+
+    <button class="btn cta" id="openFile"><i data-lucide="upload" class="icon"></i>Open GLB</button>
+    <input type="file" id="fileInput" accept=".glb,model/gltf-binary" class="hidden" />
+
+    <div class="topbar-spacer"></div>
+
+    <div class="topbar-group">
+      <button class="btn icon-only" id="turntableBtn" title="Turntable (play/pause)"><i data-lucide="play" class="icon"></i></button>
+      <button class="btn icon-only" id="screenshotBtn" title="Save Inspector screenshot (PNG)"><i data-lucide="camera" class="icon"></i></button>
+      <button class="btn icon-only" id="resetCamBtn" title="Reset camera framing"><i data-lucide="focus" class="icon"></i></button>
+    </div>
+
+    <div class="vrule"></div>
+
+    <button class="btn icon-only" id="toggleDrawer" title="Toggle lighting panel"><i data-lucide="panel-right"></i></button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="section" id="sec-hierarchy">
+        <div class="section-head" data-toggle>
+          <span>Scene hierarchy</span>
+          <i data-lucide="chevron-down" class="icon chev" style="width:14px;height:14px"></i>
+        </div>
+        <div class="section-body">
+          <div class="tree" id="tree"><div class="empty-note">No model loaded.</div></div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-info">
+        <div class="section-head" data-toggle>
+          <span>Model info</span>
+          <i data-lucide="chevron-down" class="icon chev" style="width:14px;height:14px"></i>
+        </div>
+        <div class="section-body">
+          <div id="modelInfo"><div class="empty-note">No model loaded.</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="viewports">
+      <section class="pane" id="paneClient">
+        <div class="pane-toolbar">
+          <span class="pane-label"><span class="pip"></span>Client View</span>
+          <span style="flex:1"></span>
+          <span class="mono" style="font-size:10px;color:var(--text-muted)">model-viewer</span>
+        </div>
+        <div class="pane-body" id="clientBody">
+          <model-viewer id="mv"
+            camera-controls
+            interaction-prompt="none"
+            shadow-intensity="1"
+            exposure="1"
+            environment-image="neutral"
+            disable-tap
+            min-field-of-view="5deg"
+            max-field-of-view="90deg">
+          </model-viewer>
+        </div>
+      </section>
+
+      <div id="divider"></div>
+
+      <section class="pane" id="paneInspector">
+        <div class="pane-toolbar">
+          <span class="pane-label"><span class="pip"></span>Inspector</span>
+          <div class="segmented" id="modeSeg"></div>
+        </div>
+        <div class="pane-body" id="inspectorBody"></div>
+      </section>
+
+      <div id="dropzone">
+        <div class="dz-inner">
+          <div class="dzicon"><i data-lucide="upload-cloud"></i></div>
+          <div class="dz-title">Drop a GLB file here</div>
+          <div class="dz-sub">or click to browse</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div class="section" id="sec-light">
+        <div class="section-head" data-toggle>
+          <span>Lighting</span>
+          <i data-lucide="chevron-down" class="icon chev" style="width:14px;height:14px"></i>
+        </div>
+        <div class="section-body">
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Environment</span></div>
+            <select id="envSelect" style="margin-top:6px">
+              <option value="none">None</option>
+              <option value="neutral" selected>Neutral Studio (EXR)</option>
+              <option value="warm">Warm Studio (EXR)</option>
+              <option value="custom">Custom EXR…</option>
+            </select>
+            <input type="file" id="exrInput" accept=".exr" class="hidden" />
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Env intensity</span><span class="ctrl-val mono" id="envIntVal">1.00</span></div>
+            <input type="range" id="envInt" min="0" max="2" step="0.05" value="1" />
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Sun light</span><div class="toggle on" id="sunToggle"></div></div>
+          </div>
+
+          <div id="sunControls">
+            <div class="ctrl">
+              <div class="ctrl-row"><span class="ctrl-label">Azimuth</span><span class="ctrl-val mono" id="sunAzVal">135°</span></div>
+              <input type="range" id="sunAz" min="0" max="360" step="1" value="135" />
+            </div>
+            <div class="ctrl">
+              <div class="ctrl-row"><span class="ctrl-label">Elevation</span><span class="ctrl-val mono" id="sunElVal">45°</span></div>
+              <input type="range" id="sunEl" min="-90" max="90" step="1" value="45" />
+            </div>
+            <div class="ctrl">
+              <div class="ctrl-row"><span class="ctrl-label">Color</span><input type="color" id="sunColor" value="#fff4e0" /></div>
+            </div>
+            <div class="ctrl">
+              <div class="ctrl-row"><span class="ctrl-label">Intensity</span><span class="ctrl-val mono" id="sunIntVal">1.5</span></div>
+              <input type="range" id="sunInt" min="0" max="3" step="0.1" value="1.5" />
+            </div>
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Shadow intensity</span><span class="ctrl-val mono" id="shadowVal">1.00</span></div>
+            <input type="range" id="shadow" min="0" max="1" step="0.05" value="1" />
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Exposure</span><span class="ctrl-val mono" id="expoVal">1.00</span></div>
+            <input type="range" id="expo" min="0.5" max="2.5" step="0.05" value="1" />
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-row"><span class="ctrl-label">Background</span><input type="color" id="bgColor" value="#f1f2ec" /></div>
+          </div>
+
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- STATUS BAR -->
+  <div id="statusbar">
+    <div class="stat"><span class="sl">draws</span><span class="sv" id="stDraws">0</span></div>
+    <div class="stat"><span class="sl">tris</span><span class="sv" id="stTris">0</span></div>
+    <div class="stat"><span class="sl">frame</span><span class="sv" id="stFrame">0.0 ms</span></div>
+    <div class="stat"><span class="sl">fps</span><span class="sv" id="stFps">0</span></div>
+    <div class="grow"></div>
+    <span class="mode-tag" id="stMode">Lit</span>
+  </div>
+
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = id => document.getElementById(id);
+const mv = $('mv');
+const inspectorBody = $('inspectorBody');
+const dropzone = $('dropzone');
+
+/* ---------------- Three.js setup ---------------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.info.autoReset = false;
+inspectorBody.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#f1f2ec');
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+camera.position.set(0, 0, 3);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = false;
+controls.target.set(0, 0, 0);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+let roomEnvRT = null;
+
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+scene.add(sun.target);
+
+const groundMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+ground.visible = false;
+scene.add(ground);
+
+let modelRoot = null;
+const originalMaterials = new Map();
+let overlayMeshes = [];
+let uvCheckerTex = null;
+let mixer = null;
+
+/* ---------------- Camera sync state ----------------
+   Robust two-way sync without time-based debounce:
+   - model-viewer reports event.detail.source; we ONLY react to
+     'user-interaction', ignoring the programmatic echo from our own
+     setCameraOrbit (that echo carries model-viewer's clamped radius,
+     which previously yanked the Inspector to max zoom).
+   - When WE drive the three.js camera, `applyingToThree` suppresses the
+     OrbitControls 'change' echo. ------------------------------------- */
+let applyingToThree = false;
+const sharedCam = { theta: 0, phi: Math.PI/3, radius: 3 };
+
+/* ---------------- Lighting state ---------------- */
+const light = {
+  env:'neutral', envIntensity:1.0,
+  sunOn:true, sunAz:135, sunEl:45, sunColor:'#fff4e0', sunInt:1.5,
+  shadow:1.0, exposure:1.0, bg:'#f1f2ec'
+};
+
+/* ============================================================ RENDER MODES */
+const MODES = [
+  { id:'lit',       label:'Lit' },
+  { id:'albedo',    label:'Albedo' },
+  { id:'normals',   label:'Normals' },
+  { id:'wireframe', label:'Wireframe' },
+  { id:'roughness', label:'Roughness' },
+  { id:'metalness', label:'Metalness' },
+  { id:'uv',        label:'UV checker' },
+  { id:'ao',        label:'AO' },
+  { id:'overdraw',  label:'Overdraw' },
+];
+let currentMode = 'lit';
+let isolatedUuid = null;
+
+const seg = $('modeSeg');
+MODES.forEach(m => {
+  const b = document.createElement('button');
+  b.className = 'seg-btn' + (m.id === 'lit' ? ' active' : '');
+  b.dataset.mode = m.id;
+  b.title = m.label + ' mode';
+  b.textContent = m.label;
+  b.addEventListener('click', () => setMode(m.id));
+  seg.appendChild(b);
+});
+
+function setMode(id){
+  currentMode = id;
+  document.querySelectorAll('#modeSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === id));
+  $('stMode').textContent = MODES.find(m => m.id === id).label;
+  refreshInspector();
+}
+
+function buildUVChecker(){
+  const size = 512, cells = 8;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const quad = ['#b85050','#5b8c2a','#3a6ea5','#f47b20'];
+  const step = size / cells;
+  for (let y = 0; y < cells; y++){
+    for (let x = 0; x < cells; x++){
+      const base = quad[(y < cells/2 ? 0 : 1)*2 + (x < cells/2 ? 0 : 1)];
+      ctx.fillStyle = ((x + y) % 2 === 0) ? base : shade(base, -28);
+      ctx.fillRect(x*step, y*step, step, step);
+    }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= cells; i++){
+    ctx.beginPath(); ctx.moveTo(i*step, 0); ctx.lineTo(i*step, size); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i*step); ctx.lineTo(size, i*step); ctx.stroke();
+  }
+  ctx.fillStyle = '#fff'; ctx.font = '700 26px DM Sans, sans-serif';
+  ctx.fillText('0,0', 8, size - 12);
+  ctx.fillText('U \u2192', size - 78, size - 12);
+  ctx.save(); ctx.translate(14, 78); ctx.rotate(-Math.PI/2); ctx.fillText('V \u2192', 0, 0); ctx.restore();
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  let r=Math.max(0,Math.min(255,(n>>16)+amt)), g=Math.max(0,Math.min(255,((n>>8)&255)+amt)), b=Math.max(0,Math.min(255,(n&255)+amt));
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+function channelMaterial(map, channel, uniformValue){
+  return new THREE.ShaderMaterial({
+    uniforms:{ map:{ value: map||null }, hasMap:{ value: map?1:0 }, uVal:{ value: uniformValue }, chan:{ value: channel } },
+    vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform sampler2D map; uniform int hasMap; uniform float uVal; uniform int chan; varying vec2 vUv;
+      void main(){ float v=uVal; if(hasMap==1){ vec4 t=texture2D(map,vUv); v = chan==0?t.r:(chan==1?t.g:t.b); } gl_FragColor=vec4(vec3(v),1.0); }`
+  });
+}
+
+function buildModeMaterial(srcMat, mode){
+  switch(mode){
+    case 'albedo':{
+      const m = new THREE.MeshBasicMaterial();
+      m.map = srcMat.map || null;
+      if (srcMat.color) m.color.copy(srcMat.color);
+      m.transparent = srcMat.transparent; m.alphaTest = srcMat.alphaTest; m.side = srcMat.side;
+      return m;
+    }
+    case 'normals':{ const m = new THREE.MeshNormalMaterial(); m.side = srcMat.side; return m; }
+    case 'roughness': return channelMaterial(srcMat.roughnessMap, 1, srcMat.roughness ?? 1.0);
+    case 'metalness': return channelMaterial(srcMat.metalnessMap, 2, srcMat.metalness ?? 0.0);
+    case 'uv':{
+      if (!uvCheckerTex) uvCheckerTex = buildUVChecker();
+      const m = new THREE.MeshBasicMaterial({ map: uvCheckerTex }); m.side = srcMat.side; return m;
+    }
+    case 'ao':{
+      const aoMap = srcMat.aoMap || null;
+      const m = new THREE.MeshBasicMaterial({ map: aoMap, color: 0xffffff }); m.side = srcMat.side; return m;
+    }
+    case 'overdraw':
+      return new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.15, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+    case 'lit':
+    default:
+      return srcMat.clone();
+  }
+}
+
+function clearOverlays(){
+  overlayMeshes.forEach(o => { o.parent && o.parent.remove(o); o.material.dispose(); });
+  overlayMeshes = [];
+}
+
+function refreshInspector(){
+  if (!modelRoot) return;
+  clearOverlays();
+  modelRoot.traverse(o => {
+    if (!o.isMesh) return;
+    const originals = originalMaterials.get(o.uuid);
+    if (!originals) return;
+    const isDim = isolatedUuid && o.uuid !== isolatedUuid;
+
+    if (currentMode === 'lit' && !isDim){
+      o.material = originals.length === 1 ? originals[0] : originals.slice();
+      applyEnvIntensityToMesh(o);
+    } else {
+      const built = originals.map(src => {
+        const mat = buildModeMaterial(src, currentMode);
+        if (currentMode === 'lit') mat.envMapIntensity = light.envIntensity;
+        if (isDim){ mat.transparent = true; mat.opacity = 0.2; mat.depthWrite = false; }
+        return mat;
+      });
+      o.material = built.length === 1 ? built[0] : built;
+    }
+
+    if (currentMode === 'wireframe' && !isDim){
+      const wf = new THREE.Mesh(o.geometry, new THREE.MeshBasicMaterial({
+        wireframe:true, color:0x2a2f1c, transparent:true, opacity:0.45, depthTest:true
+      }));
+      wf.position.copy(o.position); wf.quaternion.copy(o.quaternion); wf.scale.copy(o.scale);
+      o.parent.add(wf);
+      overlayMeshes.push(wf);
+    }
+  });
+}
+
+function applyEnvIntensityToMesh(mesh){
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  mats.forEach(m => { if (m && 'envMapIntensity' in m){ m.envMapIntensity = light.envIntensity; m.needsUpdate = true; } });
+}
+function applyEnvIntensity(){ if (modelRoot) modelRoot.traverse(o => { if (o.isMesh) applyEnvIntensityToMesh(o); }); }
+
+/* ============================================================ LOADING */
+const gltfLoader = new GLTFLoader();
+// compression decoders so real exports (Blender Draco / Meshopt / KTX2) load
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
+gltfLoader.setDRACOLoader(draco);
+const ktx2 = new KTX2Loader();
+ktx2.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/');
+ktx2.detectSupport(renderer);
+gltfLoader.setKTX2Loader(ktx2);
+gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+
+let currentObjectURL = null;
+let currentFileName = '';
+
+async function loadDefault(name){
+  try{
+    const res = await fetch('./assets/models/' + name);
+    if (!res.ok) throw new Error('not found');
+    loadModelFromBuffer(await res.arrayBuffer(), name);
+  }catch(err){
+    showDropzone(true); // silent fallback
+  }
+}
+
+function loadModelFromBuffer(buffer, fileName){
+  currentFileName = fileName;
+
+  // model-viewer: blob URL from an independent copy
+  if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+  currentObjectURL = URL.createObjectURL(new Blob([buffer.slice(0)], { type:'model/gltf-binary' }));
+  mv.src = currentObjectURL;
+
+  // three.js: parse an independent clone (GLTFLoader.parse consumes the buffer)
+  gltfLoader.parse(buffer.slice(0), '', (gltf) => {
+    installModel(gltf, fileName, buffer.byteLength);
+  }, (err) => {
+    console.warn('GLTF parse error (Inspector):', err);
+    $('modelInfo').innerHTML = '<div class="err-note">Could not parse this GLB in the Inspector. It may use an unsupported feature.</div>';
+  });
+
+  showDropzone(false);
+}
+
+function disposeCurrentModel(){
+  clearOverlays();
+  if (modelRoot){
+    scene.remove(modelRoot);
+    modelRoot.traverse(o => {
+      if (o.isMesh){
+        o.geometry && o.geometry.dispose();
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m && m.dispose && m.dispose());
+      }
+    });
+  }
+  modelRoot = null; originalMaterials.clear(); isolatedUuid = null;
+}
+
+function installModel(gltf, fileName, fileSize){
+  disposeCurrentModel();
+  modelRoot = gltf.scene;
+  scene.add(modelRoot);
+
+  modelRoot.traverse(o => {
+    if (o.isMesh){
+      o.castShadow = true; o.receiveShadow = true;
+      originalMaterials.set(o.uuid, Array.isArray(o.material) ? o.material : [o.material]);
+    }
+  });
+
+  const box = new THREE.Box3().setFromObject(modelRoot);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+  controls.target.copy(center);
+  ground.position.y = box.min.y;
+  ground.geometry.dispose(); ground.geometry = new THREE.PlaneGeometry(maxDim*8, maxDim*8);
+
+  const sc = sun.shadow.camera, r = maxDim*1.4;
+  sc.left=-r; sc.right=r; sc.top=r; sc.bottom=-r; sc.near=0.01; sc.far=maxDim*12; sc.updateProjectionMatrix();
+
+  positionSun();
+  frameCamera();
+
+  applyEnvIntensity();
+  refreshInspector();
+
+  if (mixer){ mixer.stopAllAction(); mixer = null; }
+  if (gltf.animations && gltf.animations.length){
+    mixer = new THREE.AnimationMixer(modelRoot);
+    gltf.animations.forEach(c => mixer.clipAction(c).play());
+  }
+
+  buildModelInfo(gltf, fileName, fileSize, { box, size });
+  buildHierarchy(gltf);
+  applyLighting();
+}
+
+function frameCamera(){
+  if (!modelRoot) return;
+  const box = new THREE.Box3().setFromObject(modelRoot);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const fov = camera.fov * Math.PI/180;
+  const radius = (maxDim/2) / Math.tan(fov/2) * 1.6;
+
+  sharedCam.theta = Math.PI*0.18; sharedCam.phi = Math.PI*0.42; sharedCam.radius = radius;
+
+  applyingToThree = true;
+  controls.target.copy(center);
+  camera.position.setFromSpherical(new THREE.Spherical(radius, sharedCam.phi, sharedCam.theta)).add(center);
+  camera.near = radius/100; camera.far = radius*100; camera.updateProjectionMatrix();
+  controls.update();
+  applyingToThree = false;
+
+  // widen model-viewer zoom bounds so it doesn't clamp differently from OrbitControls
+  mv.minCameraOrbit = `auto auto ${(radius*0.05).toFixed(4)}m`;
+  mv.maxCameraOrbit = `auto auto ${(radius*8).toFixed(2)}m`;
+  mv.cameraTarget = `${center.x}m ${center.y}m ${center.z}m`;
+  mv.cameraOrbit  = `${sharedCam.theta}rad ${sharedCam.phi}rad ${sharedCam.radius}m`;
+}
+
+/* ---------------- camera sync handlers ---------------- */
+mv.addEventListener('camera-change', (e) => {
+  if (!modelRoot) return;
+  if (e.detail.source !== 'user-interaction') return; // ignore programmatic echo (fixes zoom-snap)
+  const o = mv.getCameraOrbit(), t = mv.getCameraTarget();
+  sharedCam.theta = o.theta; sharedCam.phi = o.phi; sharedCam.radius = o.radius;
+  applyingToThree = true;
+  controls.target.set(t.x, t.y, t.z);
+  camera.position.setFromSpherical(new THREE.Spherical(o.radius, o.phi, o.theta)).add(controls.target);
+  camera.lookAt(controls.target);
+  controls.update();
+  applyingToThree = false;
+});
+
+controls.addEventListener('change', () => {
+  if (!modelRoot || applyingToThree) return; // ignore our own programmatic updates
+  const off = camera.position.clone().sub(controls.target);
+  const sph = new THREE.Spherical().setFromVector3(off);
+  sharedCam.theta = sph.theta; sharedCam.phi = sph.phi; sharedCam.radius = sph.radius;
+  // programmatic set -> model-viewer fires camera-change with source 'none' -> ignored above
+  mv.cameraTarget = `${controls.target.x}m ${controls.target.y}m ${controls.target.z}m`;
+  mv.cameraOrbit  = `${sph.theta}rad ${sph.phi}rad ${sph.radius}m`;
+});
+
+mv.addEventListener('load', () => {
+  try{
+    const fov = mv.getFieldOfView();
+    if (fov && isFinite(fov)){ camera.fov = fov; camera.updateProjectionMatrix(); }
+    frameCamera();
+  }catch(e){ /* ignore */ }
+});
+
+/* ============================================================ ENVIRONMENT (EXR) */
+function getRoomEnv(){
+  if (!roomEnvRT) roomEnvRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  return roomEnvRT.texture;
+}
+
+let customEnvTex = null;
+let currentEnvUrl = null;
+
+async function setEnvironment(kind, customTex){
+  // --- three.js Inspector: real EXR (or generated fallback) ---
+  if (kind === 'none'){
+    scene.environment = null;
+  } else if (kind === 'custom' && customTex){
+    scene.environment = customTex;
+  } else {
+    const file = kind === 'warm' ? 'warm-studio.exr' : 'neutral-studio.exr';
+    try{
+      const tex = await new Promise((resolve, reject) => {
+        new EXRLoader().load('./assets/hdri/' + file, resolve, undefined, reject);
+      });
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      const envRT = pmrem.fromEquirectangular(tex);
+      tex.dispose();
+      scene.environment = envRT.texture;
+    }catch(e){
+      scene.environment = getRoomEnv(); // offline / missing-file fallback
+    }
+  }
+
+  // --- model-viewer: cannot read EXR, so it uses its built-in neutral IBL ---
+  if (kind === 'none') mv.removeAttribute('environment-image');
+  else mv.setAttribute('environment-image', 'neutral');
+
+  applyEnvIntensity();
+}
+
+function positionSun(){
+  const az = THREE.MathUtils.degToRad(light.sunAz), el = THREE.MathUtils.degToRad(light.sunEl);
+  const d = 10, c = controls.target;
+  sun.position.set(c.x + d*Math.cos(el)*Math.sin(az), c.y + d*Math.sin(el), c.z + d*Math.cos(el)*Math.cos(az));
+  sun.target.position.copy(c); sun.target.updateMatrixWorld();
+}
+
+function applyLighting(){
+  sun.visible = light.sunOn;
+  sun.color.set(light.sunColor);
+  sun.intensity = light.sunInt;
+  positionSun();
+
+  ground.visible = light.shadow > 0.001 && light.sunOn;
+  groundMat.opacity = 0.5 * light.shadow;
+  mv.setAttribute('shadow-intensity', String(light.shadow));
+
+  renderer.toneMappingExposure = light.exposure;
+  mv.setAttribute('exposure', String(light.exposure));
+
+  scene.background = new THREE.Color(light.bg);
+  renderer.setClearColor(new THREE.Color(light.bg), 1);
+  mv.style.background = light.bg;
+  $('clientBody').style.background = light.bg;
+
+  applyEnvIntensity();
+}
+
+/* ============================================================ MODEL INFO */
+function fmtBytes(b){
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+}
+const CHANNEL_OF = {
+  map:'baseColor', normalMap:'normal', roughnessMap:'metalRough', metalnessMap:'metalRough',
+  aoMap:'occlusion', emissiveMap:'emissive', alphaMap:'alpha', bumpMap:'bump',
+  displacementMap:'displacement', lightMap:'lightmap', clearcoatMap:'clearcoat',
+  clearcoatNormalMap:'clearcoatNormal', clearcoatRoughnessMap:'clearcoatRough',
+  sheenColorMap:'sheenColor', sheenRoughnessMap:'sheenRough', specularIntensityMap:'specular',
+  specularColorMap:'specularColor', iridescenceMap:'iridescence',
+  iridescenceThicknessMap:'iridescenceThk', transmissionMap:'transmission',
+  thicknessMap:'thickness', anisotropyMap:'anisotropy'
+};
+function texDims(t){
+  const img = t && t.image;
+  if (!img) return '\u2014';
+  const w = img.width || img.naturalWidth || 0;
+  const h = img.height || img.naturalHeight || 0;
+  return (w && h) ? `${w}\u00d7${h}` : '\u2014';
+}
+
+function buildModelInfo(gltf, fileName, fileSize, geom){
+  let tris = 0, verts = 0, meshCount = 0;
+  const matSet = new Set();
+  const texMap = new Map(); // texture.uuid -> { tex, channels:Set }
+
+  modelRoot.traverse(o => {
+    if (!o.isMesh) return;
+    meshCount++;
+    const g = o.geometry;
+    const posCount = g.attributes.position ? g.attributes.position.count : 0;
+    verts += posCount;
+    tris += g.index ? g.index.count/3 : posCount/3;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+      if (!m) return;
+      matSet.add(m.uuid);
+      for (const key in CHANNEL_OF){
+        const t = m[key];
+        if (t && t.isTexture){
+          if (!texMap.has(t.uuid)) texMap.set(t.uuid, { tex:t, channels:new Set() });
+          texMap.get(t.uuid).channels.add(CHANNEL_OF[key]);
+        }
+      }
+    });
+  });
+
+  const json = (gltf.parser && gltf.parser.json) ? gltf.parser.json : {};
+  const jsonImg = json.images || [];
+  const jsonTex = json.textures || [];
+  // authoritative texture count: the most a file could have
+  const texCount = Math.max(texMap.size, jsonTex.length, jsonImg.length);
+
+  const exts = new Set([...(json.extensionsUsed||[]), ...(json.extensionsRequired||[])]);
+  const sz = geom.size;
+  const animList = (gltf.animations||[]).map(c => `${c.name||'clip'} \u00b7 ${c.duration.toFixed(2)}s`);
+
+  let html = '';
+  html += kv('File', fileName);
+  html += kv('Size', fmtBytes(fileSize));
+  html += kv('Triangles', Math.round(tris).toLocaleString());
+  html += kv('Vertices', Math.round(verts).toLocaleString());
+  html += kv('Meshes', String(meshCount));
+  html += kv('Materials', String(matSet.size));
+  html += kv('Textures', String(texCount));
+  html += kv('Bounds (m)', `${sz.x.toFixed(3)} \u00d7 ${sz.y.toFixed(3)} \u00d7 ${sz.z.toFixed(3)}`);
+  html += kv('Animations', animList.length ? 'yes' : 'no');
+
+  if (animList.length){
+    html += `<div class="subhead">Clips</div>`;
+    html += animList.map(a => `<div class="kv"><span class="v mono" style="text-align:left">${esc(a)}</span></div>`).join('');
+  }
+
+  html += `<div class="subhead">Textures</div>`;
+  if (texMap.size > 0){
+    for (const { tex, channels } of texMap.values()){
+      const nm = tex.name || (tex.image && tex.image.src ? tex.image.src.split('/').pop() : 'texture');
+      html += `<div class="tex-item"><span class="tn">${esc(trim(nm,18))}</span><span class="td mono">${texDims(tex)} \u00b7 ${[...channels].join(',')}</span></div>`;
+    }
+  } else if (texCount > 0){
+    // detected from the glTF JSON even if not bound to a scanned material slot
+    (jsonImg.length ? jsonImg : jsonTex).forEach((im, i) => {
+      const nm = im.name || (im.uri ? im.uri.split('/').pop() : ((im.mimeType||'image') + ' ' + i));
+      html += `<div class="tex-item"><span class="tn">${esc(trim(nm,18))}</span><span class="td mono">embedded</span></div>`;
+    });
+  } else {
+    html += `<div class="empty-note">none</div>`;
+  }
+
+  html += `<div class="subhead">glTF extensions</div>`;
+  html += exts.size === 0 ? `<div class="empty-note">none</div>`
+    : `<div class="chips">${[...exts].map(e => `<span class="ext-chip">${esc(e)}</span>`).join('')}</div>`;
+
+  $('modelInfo').innerHTML = html;
+}
+function kv(k,v){ return `<div class="kv"><span class="k">${esc(k)}</span><span class="v mono">${esc(v)}</span></div>`; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function trim(s,n){ s=String(s); return s.length>n ? s.slice(0,n-1)+'\u2026' : s; }
+
+/* ============================================================ HIERARCHY */
+function buildHierarchy(gltf){
+  const container = $('tree');
+  container.innerHTML = '';
+  gltf.scene.children.forEach(child => container.appendChild(renderNode(child)));
+  if (!gltf.scene.children.length) container.innerHTML = '<div class="empty-note">empty scene</div>';
+  lucide.createIcons();
+}
+function renderNode(obj){
+  const wrap = document.createElement('div');
+  const row = document.createElement('div');
+  row.className = 'tnode-row'; row.dataset.uuid = obj.uuid;
+
+  const hasChildren = obj.children && obj.children.length > 0;
+  const tw = document.createElement('span');
+  tw.className = 'tw';
+  tw.innerHTML = hasChildren ? `<i data-lucide="chevron-down" class="icon"></i>` : `<i data-lucide="${obj.isMesh ? 'box' : 'circle'}" class="icon"></i>`;
+  row.appendChild(tw);
+
+  const name = document.createElement('span');
+  name.className = 'tname';
+  name.textContent = obj.name || (obj.isMesh ? 'Mesh' : obj.type);
+  row.appendChild(name);
+
+  if (obj.isMesh){
+    const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+    const mn = document.createElement('span');
+    mn.className = 'tmat';
+    mn.textContent = (mat && mat.name) ? mat.name : 'material';
+    row.appendChild(mn);
+  }
+  wrap.appendChild(row);
+
+  if (hasChildren){
+    const childWrap = document.createElement('div');
+    childWrap.className = 'tchildren';
+    obj.children.forEach(c => childWrap.appendChild(renderNode(c)));
+    wrap.appendChild(childWrap);
+    tw.addEventListener('click', (e) => {
+      e.stopPropagation();
+      childWrap.classList.toggle('hidden');
+      const ic = tw.querySelector('[data-lucide]');
+      if (ic) ic.style.transform = childWrap.classList.contains('hidden') ? 'rotate(-90deg)' : '';
+    });
+  }
+
+  row.addEventListener('click', () => {
+    const meshUuid = nearestMeshUuid(obj);
+    if (!meshUuid) return;
+    if (isolatedUuid === meshUuid){ isolatedUuid = null; row.classList.remove('selected'); }
+    else { isolatedUuid = meshUuid; document.querySelectorAll('.tnode-row').forEach(r => r.classList.remove('selected')); row.classList.add('selected'); }
+    refreshInspector();
+  });
+  row.addEventListener('dblclick', () => frameOnObject(obj));
+  return wrap;
+}
+function nearestMeshUuid(obj){
+  if (obj.isMesh) return obj.uuid;
+  let found = null; obj.traverse(o => { if (!found && o.isMesh) found = o.uuid; });
+  return found;
+}
+function frameOnObject(obj){
+  const box = new THREE.Box3().setFromObject(obj);
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 0.5;
+  const radius = (maxDim/2) / Math.tan(camera.fov*Math.PI/360) * 1.8;
+
+  sharedCam.radius = radius;
+  applyingToThree = true;
+  controls.target.copy(center);
+  camera.position.setFromSpherical(new THREE.Spherical(radius, sharedCam.phi, sharedCam.theta)).add(center);
+  controls.update();
+  applyingToThree = false;
+
+  mv.cameraTarget = `${center.x}m ${center.y}m ${center.z}m`;
+  mv.cameraOrbit  = `${sharedCam.theta}rad ${sharedCam.phi}rad ${radius}m`;
+}
+
+/* ============================================================ STATS / LOOP */
+const fpsBuf = new Array(60).fill(0);
+let fpsIdx = 0, lastT = performance.now(), turntable = false;
+const clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = now - lastT; lastT = now;
+  const delta = clock.getDelta();
+  if (mixer) mixer.update(delta);
+
+  if (turntable && modelRoot){
+    sharedCam.theta += 0.006;
+    applyingToThree = true;
+    camera.position.setFromSpherical(new THREE.Spherical(sharedCam.radius, sharedCam.phi, sharedCam.theta)).add(controls.target);
+    camera.lookAt(controls.target);
+    controls.update();
+    applyingToThree = false;
+    mv.cameraOrbit = `${sharedCam.theta}rad ${sharedCam.phi}rad ${sharedCam.radius}m`;
+  }
+
+  renderer.info.reset();
+  renderer.render(scene, camera);
+
+  const info = renderer.info.render;
+  $('stDraws').textContent = info.calls;
+  $('stTris').textContent = info.triangles.toLocaleString();
+  $('stFrame').textContent = dt.toFixed(1) + ' ms';
+  fpsBuf[fpsIdx] = 1000 / Math.max(dt, 0.0001); fpsIdx = (fpsIdx + 1) % 60;
+  $('stFps').textContent = Math.round(fpsBuf.reduce((a,b)=>a+b,0) / 60);
+}
+
+/* ============================================================ RESIZE */
+function resizeInspector(){
+  const w = inspectorBody.clientWidth, h = inspectorBody.clientHeight;
+  if (!w || !h) return;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+new ResizeObserver(resizeInspector).observe(inspectorBody);
+window.addEventListener('resize', resizeInspector);
+
+/* ============================================================ DROP ZONE / FILES */
+function showDropzone(show){ dropzone.classList.toggle('hidden', !show); }
+dropzone.addEventListener('click', () => $('fileInput').click());
+$('openFile').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; });
+
+function readFile(file){
+  const reader = new FileReader();
+  reader.onload = () => { loadModelFromBuffer(reader.result, file.name); document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active')); };
+  reader.readAsArrayBuffer(file);
+}
+
+const vp = $('viewports');
+let dragDepth = 0;
+const isFileDrag = e => e.dataTransfer && (e.dataTransfer.types || []).includes('Files');
+function endDrag(){ dragDepth = 0; dropzone.classList.remove('over'); if (modelRoot) showDropzone(false); }
+vp.addEventListener('dragenter', (e) => { if (!isFileDrag(e)) return; e.preventDefault(); dragDepth++; showDropzone(true); dropzone.classList.add('over'); });
+vp.addEventListener('dragover',  (e) => { if (!isFileDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+vp.addEventListener('dragleave', (e) => { if (!isFileDrag(e)) return; dragDepth = Math.max(0, dragDepth-1); if (dragDepth === 0) endDrag(); });
+vp.addEventListener('drop', (e) => {
+  e.preventDefault(); endDrag();
+  const f = e.dataTransfer.files[0];
+  if (f && /\.glb$/i.test(f.name)) readFile(f);
+  else if (!modelRoot) showDropzone(true);
+});
+
+/* ============================================================ TOP BAR */
+$('toggleSidebar').addEventListener('click', () => { $('sidebar').classList.toggle('collapsed'); $('toggleSidebar').classList.toggle('active'); setTimeout(resizeInspector, 160); });
+$('toggleDrawer').addEventListener('click', () => { $('drawer').classList.toggle('collapsed'); $('toggleDrawer').classList.toggle('active'); setTimeout(resizeInspector, 160); });
+
+$('turntableBtn').addEventListener('click', () => {
+  turntable = !turntable;
+  $('turntableBtn').classList.toggle('active', turntable);
+  $('turntableBtn').innerHTML = `<i data-lucide="${turntable ? 'pause' : 'play'}" class="icon"></i>`;
+  lucide.createIcons();
+});
+$('resetCamBtn').addEventListener('click', frameCamera);
+$('screenshotBtn').addEventListener('click', () => {
+  renderer.render(scene, camera);
+  const a = document.createElement('a');
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.download = `${(currentFileName.replace(/\.glb$/i,'') || 'inspector')}-${currentMode}.png`;
+  a.click();
+});
+
+document.querySelectorAll('.model-chip').forEach(chip => chip.addEventListener('click', () => {
+  document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  loadDefault(chip.dataset.model);
+}));
+
+document.querySelectorAll('.section-head[data-toggle]').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
+
+/* ============================================================ LIGHTING BINDINGS */
+function fill(el){ const min=+el.min, max=+el.max, v=+el.value; el.style.setProperty('--fill', ((v-min)/(max-min)*100) + '%'); }
+function bindRange(id, onChange){ const el = $(id); const update = () => { fill(el); onChange(+el.value); }; el.addEventListener('input', update); fill(el); }
+
+bindRange('envInt', v => { light.envIntensity = v; $('envIntVal').textContent = v.toFixed(2); applyEnvIntensity(); });
+bindRange('sunAz',  v => { light.sunAz = v; $('sunAzVal').textContent = v + '\u00b0'; positionSun(); });
+bindRange('sunEl',  v => { light.sunEl = v; $('sunElVal').textContent = v + '\u00b0'; positionSun(); });
+bindRange('sunInt', v => { light.sunInt = v; $('sunIntVal').textContent = v.toFixed(1); sun.intensity = v; });
+bindRange('shadow', v => { light.shadow = v; $('shadowVal').textContent = v.toFixed(2); applyLighting(); });
+bindRange('expo',   v => { light.exposure = v; $('expoVal').textContent = v.toFixed(2); applyLighting(); });
+
+$('sunColor').addEventListener('input', e => { light.sunColor = e.target.value; sun.color.set(e.target.value); });
+$('bgColor').addEventListener('input',  e => { light.bg = e.target.value; applyLighting(); });
+$('sunToggle').addEventListener('click', () => {
+  light.sunOn = !light.sunOn;
+  $('sunToggle').classList.toggle('on', light.sunOn);
+  $('sunControls').style.opacity = light.sunOn ? '1' : '0.4';
+  $('sunControls').style.pointerEvents = light.sunOn ? 'auto' : 'none';
+  applyLighting();
+});
+
+$('envSelect').addEventListener('change', e => {
+  const v = e.target.value;
+  if (v === 'custom'){ $('exrInput').click(); return; }
+  light.env = v; setEnvironment(v);
+});
+$('exrInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f){ $('envSelect').value = light.env; return; }
+  if (currentEnvUrl) URL.revokeObjectURL(currentEnvUrl);
+  currentEnvUrl = URL.createObjectURL(f);
+  new EXRLoader().load(currentEnvUrl, (tex) => {
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    customEnvTex = pmrem.fromEquirectangular(tex).texture;
+    tex.dispose();
+    light.env = 'custom';
+    setEnvironment('custom', customEnvTex);
+  }, undefined, () => { $('envSelect').value = light.env; });
+  e.target.value = '';
+});
+
+/* ============================================================ DIVIDER */
+(function(){
+  const divider = $('divider'), clientP = $('paneClient'), inspP = $('paneInspector');
+  let dragging = false;
+  divider.addEventListener('mousedown', e => { dragging = true; divider.classList.add('drag'); document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; e.preventDefault(); });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = vp.getBoundingClientRect();
+    let leftW = Math.max(280, Math.min(rect.width - 285, e.clientX - rect.left));
+    clientP.style.flex = `0 0 ${(leftW/rect.width)*100}%`;
+    inspP.style.flex = `1 1 auto`;
+    resizeInspector();
+  });
+  window.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; divider.classList.remove('drag'); document.body.style.cursor=''; document.body.style.userSelect=''; resizeInspector(); });
+})();
+
+/* ============================================================ BOOT */
+lucide.createIcons();
+resizeInspector();
+applyLighting();
+setEnvironment('neutral');
+animate();
+loadDefault('material-sphere.glb');
+</script>
+
+<!--
+============================================================
+KNOWN LIMITATIONS  (intentional simplifications)
+============================================================
+1. Cross-viewport parity is approximate. model-viewer and three.js use
+   different IBL pipelines and tone-mapping. The Inspector adopts
+   model-viewer's reported FOV on load and both use ACES tone mapping,
+   but minor exposure/reflection differences remain.
+
+2. ENVIRONMENT MAPS ARE EXR. The Inspector loads .exr equirect maps from
+   ./assets/hdri/ via three.js EXRLoader (great for Blender EXR exports).
+   model-viewer CANNOT read .exr, so the Client View always uses its
+   built-in "neutral" IBL for reflections/lighting. The two viewports
+   therefore use different environments by design — the Inspector is the
+   accurate one for the EXR you supply. If you also need the Client View
+   to match an environment exactly, export that same lighting to an .hdr
+   and load it into model-viewer separately.
+
+3. Lighting controls model-viewer does not expose affect the Inspector
+   only: the directional "Sun" and "Env intensity". model-viewer's public
+   API honours exposure, shadow-intensity, and environment-image, which
+   are the values synced to the Client View.
+
+4. Camera sync: model-viewer's reported radius is clamped to its own
+   zoom bounds. Those bounds are widened on load to track OrbitControls,
+   but at extreme zoom the two viewports may differ slightly. Sync now
+   ignores programmatic echoes (only user-driven moves propagate), which
+   fixes the earlier feedback loop that snapped the Inspector to max zoom.
+
+5. Compression: Draco, Meshopt, and KTX2/Basis decoders are wired up via
+   jsDelivr so typical Blender / glTF-Transform exports load in the
+   Inspector. The decoder WASM/JS is fetched from the CDN, so the very
+   first load of a compressed model needs network access.
+
+6. Texture count is taken as the maximum of (materials scanned, glTF
+   `textures`, glTF `images`) so a textured asset never reports "none".
+   The per-texture list shows bound textures with dimensions + channel;
+   if a file declares images not bound to a scanned slot, they are listed
+   as "embedded" without dimensions.
+
+7. Roughness / Metalness sample the packed metallic-roughness texture
+   channels (G = roughness, B = metalness) or the material's scalar when
+   no map is present; the scalar factor multiplying a map is not applied.
+
+8. AO mode shows the occlusion map directly (glTF AO uses uv2; meshes
+   without uv2 may not align). Meshes with no AO map render white.
+
+9. UV Checker uses one 512x512 atlas on the primary UV set with
+   RepeatWrapping; multiple UV sets are not distinguished.
+
+10. Three.js shadows use a ground catcher plane sized from the bounding
+    box; very flat/large models may show coarse or clipped shadows.
+
+11. Default models are fetched from ./assets/models/. If absent the fetch
+    fails silently and the drop zone is shown. An actual *parse* failure
+    of a fetched/dropped GLB shows a short inline notice in Model info.
+
+12. preserveDrawingBuffer is enabled so screenshots can be captured at any
+    time; this carries a small performance cost.
+============================================================
+-->
+</body>
+</html>
